@@ -1,0 +1,11 @@
+﻿transformers
+datasets
+sentence-transformers
+chromadb
+fastapi
+uvicorn
+torch
+scikit-learn
+huggingface_hub
+evaluate
+accelerate
