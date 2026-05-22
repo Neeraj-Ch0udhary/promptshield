@@ -2,10 +2,9 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sdk.guard import Guard
 from datetime import datetime
 
 app = FastAPI(
@@ -21,8 +20,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# initialise guard once at startup
-guard = Guard()
+# lazy load — models load on first request, not at startup
+guard = None
+
+def get_guard():
+    global guard
+    if guard is None:
+        from sdk.guard import Guard
+        guard = Guard(layers=["input"])
+    return guard
 
 # in-memory log store
 logs = {"input": [], "output": [], "memory": []}
@@ -61,16 +67,24 @@ def root():
         "name": "LLMGuard API",
         "version": "0.1.0",
         "status": "running",
-        "endpoints": ["/check/input", "/check/output", "/memory/write", "/memory/query", "/run", "/logs"]
+        "endpoints": [
+            "/check/input",
+            "/check/output",
+            "/memory/write",
+            "/memory/query",
+            "/run",
+            "/logs",
+            "/health"
+        ]
     }
 
 @app.post("/check/input")
 def check_input(req: InputRequest):
-    result = guard.check_input(req.text)
+    result = get_guard().check_input(req.text)
     logs["input"].append({
-        "timestamp": str(datetime.now()),
-        "text":      req.text[:100],
-        "blocked":   result["blocked"],
+        "timestamp":  str(datetime.now()),
+        "text":       req.text[:100],
+        "blocked":    result["blocked"],
         "confidence": result["confidence"],
         "session_id": req.session_id
     })
@@ -78,7 +92,7 @@ def check_input(req: InputRequest):
 
 @app.post("/check/output")
 def check_output(req: OutputRequest):
-    result = guard.check_output(req.response, req.sources)
+    result = get_guard().check_output(req.response, req.sources)
     logs["output"].append({
         "timestamp":  str(datetime.now()),
         "response":   req.response[:100],
@@ -90,7 +104,7 @@ def check_output(req: OutputRequest):
 
 @app.post("/memory/write")
 def memory_write(req: MemoryWriteRequest):
-    result = guard.remember(req.session_id, req.fact)
+    result = get_guard().remember(req.session_id, req.fact)
     logs["memory"].append({
         "timestamp":  str(datetime.now()),
         "session_id": req.session_id,
@@ -101,11 +115,11 @@ def memory_write(req: MemoryWriteRequest):
 
 @app.post("/memory/query")
 def memory_query(req: MemoryQueryRequest):
-    return guard.recall(req.session_id, req.question, req.top_k)
+    return get_guard().recall(req.session_id, req.question, req.top_k)
 
 @app.post("/run")
 def run(req: RunRequest):
-    return guard.run(
+    return get_guard().run(
         user_input=req.user_input,
         llm_response=req.llm_response,
         sources=req.sources,
@@ -122,4 +136,7 @@ def get_logs():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "timestamp": str(datetime.now())}
+    return {
+        "status": "ok",
+        "timestamp": str(datetime.now())
+    }
