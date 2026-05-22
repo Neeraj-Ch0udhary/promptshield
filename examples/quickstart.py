@@ -57,13 +57,15 @@ for user_input, llm_response in conversations:
 # ── Use case 2: agent memory ─────────────────────────────────────────
 print("📌 Use case 2 — Agent memory\n")
 
+# Clear stale session first
+guard.memory.clear("agent_demo")
+
 guard.remember("agent_demo", "User's name is Neeraj")
 guard.remember("agent_demo", "User wants a refund for order #4521")
 guard.remember("agent_demo", "User is a premium subscriber")
-
 questions = [
     "What is the user's name?",
-    "What does the user need help with?",
+    "What refund or order issue does the user have?",
 ]
 
 for q in questions:

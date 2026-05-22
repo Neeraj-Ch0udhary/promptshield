@@ -21,8 +21,7 @@ class Guard:
 
         self.input_guard  = InputGuard(threshold=input_threshold) if "input"  in layers else None
         self.output_guard = OutputGuard(
-            contradiction_threshold=output_contradiction_threshold,
-            entailment_threshold=output_entailment_threshold,
+            net_score_threshold=0.10,
             fallback_message=fallback_message
         ) if "output" in layers else None
         self.memory = MemoryStore(db_path=memory_db_path) if "memory" in layers else None
